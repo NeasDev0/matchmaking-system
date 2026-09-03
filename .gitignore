@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+
+# Docker
+*.pid
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Секреты (ключа)
+keys/*.pem
+!keys/public.pem.example
+
+# Бинарники
+*.exe
+*.out
+*.app
+
+# Временные файлы
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db

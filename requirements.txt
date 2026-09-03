@@ -1,0 +1,15 @@
+# Общие
+fastapi
+uvicorn[standard]
+httpx
+websockets
+pydantic
+python-dotenv
+
+# Auth Service
+python-jose[cryptography]  # для JWT
+passlib[bcrypt]            # для хеширования паролей
+
+# Gateway & Node Manager
+redis
+docker                     # для работы с Docker API

@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client · Matchmaking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c1420;
+  --bg-panel:#111b2b;
+  --bg-panel-raised:#152238;
+  --line:#22324a;
+  --line-soft:#1a2740;
+  --text:#dce6f2;
+  --text-dim:#7288a3;
+  --text-faint:#465873;
+  --mint:#5eeac4;
+  --mint-dim:#5eeac433;
+  --amber:#f5b961;
+  --amber-dim:#f5b96133;
+  --rose:#f2607a;
+  --rose-dim:#f2607a33;
+  --indigo:#8b93f8;
+  --indigo-dim:#8b93f833;
+  --radius:12px;
+  --font-display:'Space Grotesk', sans-serif;
+  --font-mono:'JetBrains Mono', monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background:
+    radial-gradient(ellipse 1000px 600px at 50% -10%, #16233a 0%, transparent 60%),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--font-mono);
+  font-size:13px;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  padding:24px 16px 60px;
+}
+
+.wrap{width:100%; max-width:560px;}
+
+.brand-eyebrow{
+  font-size:11px; letter-spacing:.18em; color:var(--indigo); text-transform:uppercase;
+  display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:6px;
+}
+.brand-eyebrow::before{
+  content:''; width:6px; height:6px; border-radius:50%; background:var(--indigo);
+  box-shadow:0 0 0 3px var(--indigo-dim);
+}
+h1{
+  font-family:var(--font-display); font-weight:700; font-size:26px; text-align:center;
+  color:#f2f6fb; margin-bottom:22px;
+}
+h1 span{color:var(--text-faint); font-weight:500;}
+
+/* ---------- settings row ---------- */
+.settings{
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:14px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+}
+.field{display:flex; flex-direction:column; gap:4px; flex:1; min-width:120px;}
+.field label{font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint);}
+input{
+  background:var(--bg-panel-raised); border:1px solid var(--line); color:var(--text);
+  font-family:var(--font-mono); font-size:12px; padding:8px 10px; border-radius:8px; outline:none; width:100%;
+}
+input:focus{border-color:var(--indigo);}
+button{
+  font-family:var(--font-mono); font-size:12px; border-radius:8px; border:1px solid var(--line);
+  background:var(--bg-panel-raised); color:var(--text); padding:9px 14px; cursor:pointer;
+}
+button:hover{border-color:var(--indigo);}
+button:active{transform:translateY(1px);}
+button:disabled{opacity:.4; cursor:not-allowed;}
+button.dice{padding:9px 11px;}
+
+/* ---------- stepper ---------- */
+.stepper{
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 14px; margin-bottom:16px;
+}
+.step{display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; position:relative;}
+.step-dot{
+  width:10px; height:10px; border-radius:50%; background:var(--line); border:2px solid var(--line);
+  transition:all .3s; z-index:1;
+}
+.step-label{font-size:8px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); text-align:center; transition:color .3s;}
+.step-line{
+  position:absolute; top:4px; left:50%; width:100%; height:2px; background:var(--line); z-index:0;
+}
+.step:last-child .step-line{display:none;}
+.step.done .step-dot{background:var(--mint); border-color:var(--mint);}
+.step.done .step-label{color:var(--mint);}
+.step.done .step-line{background:var(--mint);}
+.step.active .step-dot{background:var(--indigo); border-color:var(--indigo); box-shadow:0 0 0 4px var(--indigo-dim); animation:pulse 1.6s infinite;}
+.step.active .step-label{color:var(--indigo);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+
+/* ---------- main state panel ---------- */
+.panel{
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:28px 22px; text-align:center; min-height:280px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+}
+.phase-title{font-family:var(--font-display); font-weight:700; font-size:19px; color:#f2f6fb;}
+.phase-sub{font-size:12px; color:var(--text-dim); line-height:1.6; max-width:360px;}
+
+/* countdown ring */
+.ring-wrap{position:relative; width:150px; height:150px;}
+svg.ring{transform:rotate(-90deg);}
+.ring-track{fill:none; stroke:var(--line-soft); stroke-width:8;}
+.ring-fill{fill:none; stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset .25s linear;}
+.ring-center{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.ring-value{font-family:var(--font-display); font-size:30px; font-weight:700; color:#f2f6fb;}
+.ring-unit{font-size:9px; color:var(--text-faint); letter-spacing:.08em; text-transform:uppercase;}
+
+.mmr-pill{
+  display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:4px 10px;
+  border-radius:20px; background:var(--indigo-dim); color:var(--indigo); font-family:var(--font-mono);
+}
+
+.actions{display:flex; gap:10px; margin-top:4px;}
+.btn-primary{background:var(--indigo-dim); border-color:#8b93f866; color:var(--indigo); font-weight:600; padding:11px 22px;}
+.btn-primary:hover{background:#8b93f855; border-color:var(--indigo);}
+.btn-danger{color:var(--rose); border-color:#f2607a55;}
+.btn-danger:hover{background:var(--rose-dim); border-color:var(--rose);}
+
+.spinner{
+  width:32px; height:32px; border-radius:50%; border:3px solid var(--line-soft);
+  border-top-color:var(--indigo); animation:spin 0.9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.match-info{
+  display:flex; gap:18px; font-size:11px; color:var(--text-dim); font-family:var(--font-mono);
+}
+.match-info b{color:var(--text);}
+
+.log-box{
+  margin-top:14px; background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:12px 14px; font-size:11px; color:var(--text-faint); max-height:110px; overflow-y:auto;
+}
+.log-box .line{padding:2px 0;}
+.log-box .line.err{color:var(--rose);}
+.log-box .line.ok{color:var(--mint);}
+
+.conn-dot{width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:6px;}
+.conn-dot.open{background:var(--mint); box-shadow:0 0 0 3px var(--mint-dim);}
+.conn-dot.pending{background:var(--amber); box-shadow:0 0 0 3px var(--amber-dim);}
+.conn-dot.closed{background:var(--rose); box-shadow:0 0 0 3px var(--rose-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand-eyebrow">Game Client</div>
+  <h1>Matchmaking <span>/ 10 players</span></h1>
+
+  <div class="settings">
+    <div class="field">
+      <label>Gateway URL</label>
+      <input id="gatewayUrl" spellcheck="false" placeholder="http://localhost:8000">
+    </div>
+    <div class="field">
+      <label>Player ID</label>
+      <input id="playerId" spellcheck="false">
+    </div>
+    <div class="field" style="max-width:110px;">
+      <label>MMR</label>
+      <input id="mmr" type="number" min="0" max="5000">
+    </div>
+    <button class="dice" id="rerollBtn" title="Новый случайный игрок">🎲</button>
+  </div>
+
+  <div class="stepper" id="stepper"></div>
+
+  <div class="panel" id="panel"></div>
+
+  <div class="log-box" id="log"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const PHASES = ['idle','searching','found','accepted','ingame','ended'];
+const PHASE_LABELS = {
+  idle:'Idle', searching:'Searching', found:'Found', accepted:'Accepted', ingame:'In game', ended:'Ended'
+};
+const BASE_MMR_RANGE = 50, RANGE_GROWTH_PER_SEC = 10, MAX_MMR_RANGE = 500;
+const LOBBY_ACCEPT_TIMEOUT = 20;
+
+let phase = 'idle';
+let pollTimer = null;
+let uiTimer = null;
+let searchStartedAt = null;
+let foundAt = null;
+let lobbyId = null;
+let ws = null;
+let matchDuration = null;
+let matchEndEstimate = null;
+let lastError = null;
+
+// ---------- persisted identity ----------
+const rand = () => Math.random().toString(36).slice(2, 8);
+$('gatewayUrl').value = localStorage.getItem('client_gateway_url') || 'http://localhost:8000';
+$('playerId').value = localStorage.getItem('client_player_id') || ('player_' + rand());
+$('mmr').value = localStorage.getItem('client_mmr') || (Math.floor(Math.random()*1500));
+
+$('gatewayUrl').addEventListener('change', () => localStorage.setItem('client_gateway_url', $('gatewayUrl').value.trim()));
+$('playerId').addEventListener('change', () => localStorage.setItem('client_player_id', $('playerId').value.trim()));
+$('mmr').addEventListener('change', () => localStorage.setItem('client_mmr', $('mmr').value));
+$('rerollBtn').addEventListener('click', () => {
+  $('playerId').value = 'player_' + rand();
+  $('mmr').value = Math.floor(Math.random()*1500);
+  localStorage.setItem('client_player_id', $('playerId').value);
+  localStorage.setItem('client_mmr', $('mmr').value);
+});
+
+function baseUrl(){ return ($('gatewayUrl').value.trim() || 'http://localhost:8000').replace(/\/$/, ''); }
+function playerId(){ return $('playerId').value.trim(); }
+
+function log(msg, cls){
+  const box = $('log');
+  const line = document.createElement('div');
+  line.className = 'line' + (cls ? ' ' + cls : '');
+  line.textContent = `${new Date().toLocaleTimeString('ru-RU')}  ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function dynamicRange(waitSeconds){
+  return Math.min(BASE_MMR_RANGE + Math.floor((waitSeconds||0) * RANGE_GROWTH_PER_SEC), MAX_MMR_RANGE);
+}
+
+// ---------- stepper ----------
+function renderStepper(){
+  const idx = PHASES.indexOf(phase);
+  $('stepper').innerHTML = PHASES.map((p, i) => {
+    const cls = i < idx ? 'done' : (i === idx ? 'active' : '');
+    return `<div class="step ${cls}"><div class="step-line"></div><div class="step-dot"></div><div class="step-label">${PHASE_LABELS[p]}</div></div>`;
+  }).join('');
+}
+
+// ---------- ring helper ----------
+function ringSVG(id, color){
+  const r = 66, c = 2*Math.PI*r;
+  return `<div class="ring-wrap">
+    <svg class="ring" width="150" height="150" viewBox="0 0 150 150">
+      <circle class="ring-track" cx="75" cy="75" r="${r}"/>
+      <circle class="ring-fill" id="${id}" cx="75" cy="75" r="${r}" stroke="${color}"
+        stroke-dasharray="${c}" stroke-dashoffset="0"/>
+    </svg>
+    <div class="ring-center"><div class="ring-value" id="${id}-val">–</div><div class="ring-unit">sec</div></div>
+  </div>`;
+}
+function setRing(id, fraction /* 0..1 remaining */, value){
+  const r = 66, c = 2*Math.PI*r;
+  const el = $(id);
+  if(el) el.style.strokeDashoffset = String(c * (1 - Math.max(0, Math.min(1, fraction))));
+  const valEl = $(id + '-val');
+  if(valEl) valEl.textContent = value;
+}
+
+// ---------- phase transitions ----------
+function setPhase(p){
+  phase = p;
+  renderStepper();
+  renderPanel();
+}
+
+function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer = null; } }
+function stopUiTimer(){ if(uiTimer){ clearInterval(uiTimer); uiTimer = null; } }
+
+function resetToIdle(msg){
+  stopPolling(); stopUiTimer();
+  if(ws){ try{ ws.close(); }catch(e){} ws = null; }
+  lobbyId = null; foundAt = null; searchStartedAt = null; matchDuration = null; matchEndEstimate = null;
+  if(msg) log(msg, 'err');
+  setPhase('idle');
+}
+
+// ---------- actions ----------
+async function findMatch(){
+  const pid = playerId();
+  const mmr = parseInt($('mmr').value, 10) || 1000;
+  if(!pid){ log('Укажите Player ID', 'err'); return; }
+  try{
+    const res = await fetch(baseUrl() + '/matchmaking/find', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({player_id: pid, mmr})
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    searchStartedAt = Date.now();
+    log(`В очереди: ${pid}, MMR ${mmr}`, 'ok');
+    setPhase('searching');
+    stopPolling();
+    pollTimer = setInterval(pollStatus, 1000);
+    pollStatus();
+  }catch(e){
+    log('Не удалось встать в очередь: ' + e.message, 'err');
+  }
+}
+
+async function cancelSearch(){
+  try{
+    await fetch(baseUrl() + '/matchmaking/cancel?player_id=' + encodeURIComponent(playerId()), { method:'POST' });
+    log('Поиск отменён');
+  }catch(e){ /* локально всё равно сбрасываем состояние */ }
+  resetToIdle();
+}
+
+async function acceptMatch(){
+  try{
+    const res = await fetch(baseUrl() + '/matchmaking/accept', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({player_id: playerId(), lobby_id: lobbyId})
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    log('Матч принят, ждём остальных', 'ok');
+    setPhase('accepted');
+  }catch(e){
+    log('Не удалось принять матч: ' + e.message, 'err');
+  }
+}
+
+async function pollStatus(){
+  const pid = playerId();
+  try{
+    const res = await fetch(baseUrl() + '/matchmaking/status?player_id=' + encodeURIComponent(pid));
+    if(res.status === 404){
+      if(phase !== 'idle' && phase !== 'ingame' && phase !== 'ended'){
+        resetToIdle('Сессия истекла — начните поиск заново');
+      }
+      return;
+    }
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    if(data.status === 'searching' && phase !== 'searching'){
+      setPhase('searching');
+    } else if(data.status === 'match_found'){
+      if(phase !== 'found'){
+        lobbyId = data.lobby_id;
+        foundAt = Date.now();
+        log(`Матч найден! Лобби ${lobbyId}`, 'ok');
+        setPhase('found');
+      }
+    } else if(data.status === 'accepted' && phase !== 'accepted'){
+      lobbyId = data.lobby_id || lobbyId;
+      setPhase('accepted');
+    } else if(data.status === 'in_game'){
+      stopPolling();
+      log(`Сервер назначен: ${data.ip}:${data.port}`, 'ok');
+      connectToServer(data);
+    }
+  }catch(e){
+    log('Ошибка опроса статуса: ' + e.message, 'err');
+  }
+}
+
+function connectToServer(data){
+  setPhase('ingame');
+  const url = `ws://${data.ip}:${data.port}`;
+  log('Подключаюсь к серверу ' + url + ' …');
+
+  try{
+    ws = new WebSocket(url);
+  }catch(e){
+    resetToIdle('Не удалось открыть соединение: ' + e.message);
+    return;
+  }
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type:'hello', player_id: playerId(), token: data.token }));
+  };
+
+  ws.onmessage = (evt) => {
+    let msg;
+    try{ msg = JSON.parse(evt.data); }catch(e){ return; }
+
+    if(msg.type === 'error'){
+      resetToIdle('Сервер отклонил подключение: ' + msg.reason);
+    } else if(msg.type === 'welcome'){
+      matchDuration = msg.match_duration;
+      matchEndEstimate = Date.now() + msg.remaining * 1000;
+      log(`Матч начался, длительность ${matchDuration}с`, 'ok');
+      renderPanel();
+      stopUiTimer();
+      uiTimer = setInterval(tickIngameUI, 100);
+    } else if(msg.type === 'tick'){
+      matchEndEstimate = Date.now() + msg.remaining * 1000;
+    } else if(msg.type === 'match_ended'){
+      stopUiTimer();
+      log('Матч завершён', 'ok');
+      setPhase('ended');
+    }
+  };
+
+  ws.onclose = () => {
+    if(phase === 'ingame'){
+      log('Соединение с сервером разорвано', 'err');
+    }
+  };
+  ws.onerror = () => { log('Ошибка WebSocket-соединения', 'err'); };
+}
+
+function playAgain(){
+  resetToIdle();
+}
+
+// ---------- per-frame UI updates for timers ----------
+function tickIngameUI(){
+  if(phase !== 'ingame' || !matchEndEstimate) return;
+  const remaining = Math.max(0, (matchEndEstimate - Date.now()) / 1000);
+  const frac = matchDuration ? remaining / matchDuration : 0;
+  setRing('matchRing', frac, remaining.toFixed(1));
+}
+
+function tickFoundUI(){
+  if(phase !== 'found' || !foundAt) return;
+  const elapsed = (Date.now() - foundAt) / 1000;
+  const remaining = Math.max(0, LOBBY_ACCEPT_TIMEOUT - elapsed);
+  setRing('acceptRing', remaining / LOBBY_ACCEPT_TIMEOUT, Math.ceil(remaining));
+  if(remaining <= 0){
+    stopUiTimer();
+  }
+}
+
+function tickSearchingUI(){
+  if(phase !== 'searching' || !searchStartedAt) return;
+  const elapsed = (Date.now() - searchStartedAt) / 1000;
+  const range = dynamicRange(elapsed);
+  const el = $('searchStats');
+  if(el) el.innerHTML = `<span class="mmr-pill">± ${range} MMR</span><span>ожидание ${elapsed.toFixed(0)}с</span>`;
+}
+
+// ---------- panel rendering per phase ----------
+function renderPanel(){
+  const panel = $('panel');
+  stopUiTimer();
+
+  if(phase === 'idle'){
+    panel.innerHTML = `
+      <div class="phase-title">Готов к поиску</div>
+      <div class="phase-sub">Укажите Player ID и MMR наверху, затем нажмите «Найти матч» — соберётся лобби из 10 игроков с похожим рейтингом.</div>
+      <div class="actions"><button class="btn-primary" onclick="findMatch()">Найти матч</button></div>`;
+
+  } else if(phase === 'searching'){
+    panel.innerHTML = `
+      <div class="spinner"></div>
+      <div class="phase-title">Ищем матч…</div>
+      <div class="phase-sub" id="searchStats" style="display:flex; gap:12px; justify-content:center;"></div>
+      <div class="actions"><button class="btn-danger" onclick="cancelSearch()">Отменить поиск</button></div>`;
+    uiTimer = setInterval(tickSearchingUI, 500);
+    tickSearchingUI();
+
+  } else if(phase === 'found'){
+    panel.innerHTML = `
+      <div class="phase-title">Матч найден!</div>
+      <div class="phase-sub">Лобби <b style="color:var(--text)">${lobbyId}</b> — примите матч, пока не истекло время ожидания.</div>
+      ${ringSVG('acceptRing', 'var(--amber)')}
+      <div class="actions"><button class="btn-primary" onclick="acceptMatch()">Принять</button></div>`;
+    uiTimer = setInterval(tickFoundUI, 100);
+    tickFoundUI();
+
+  } else if(phase === 'accepted'){
+    panel.innerHTML = `
+      <div class="spinner"></div>
+      <div class="phase-title">Ждём остальных игроков…</div>
+      <div class="phase-sub">Вы приняли матч. Как только все 10 подтвердят — вам назначат сервер.</div>`;
+
+  } else if(phase === 'ingame'){
+    panel.innerHTML = `
+      <div class="phase-title">Матч идёт</div>
+      <div class="phase-sub"><span class="conn-dot open"></span>подключено к игровому серверу</div>
+      ${ringSVG('matchRing', 'var(--mint)')}`;
+
+  } else if(phase === 'ended'){
+    panel.innerHTML = `
+      <div class="phase-title">Матч завершён</div>
+      <div class="phase-sub">Спасибо за игру. Можно снова встать в очередь.</div>
+      <div class="actions"><button class="btn-primary" onclick="playAgain()">Играть снова</button></div>`;
+  }
+}
+
+renderStepper();
+renderPanel();
+log('Клиент готов. Gateway: ' + baseUrl());
+</script>
+</body>
+</html>

@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gateway · Matchmaking Ops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c1420;
+  --bg-panel:#111b2b;
+  --bg-panel-raised:#152238;
+  --line:#22324a;
+  --line-soft:#1a2740;
+  --text:#dce6f2;
+  --text-dim:#7288a3;
+  --text-faint:#465873;
+  --mint:#5eeac4;
+  --mint-dim:#5eeac433;
+  --amber:#f5b961;
+  --amber-dim:#f5b96133;
+  --rose:#f2607a;
+  --rose-dim:#f2607a33;
+  --indigo:#8b93f8;
+  --indigo-dim:#8b93f833;
+  --radius:10px;
+  --font-display:'Space Grotesk', sans-serif;
+  --font-mono:'JetBrains Mono', monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background:
+    radial-gradient(ellipse 1200px 600px at 15% -10%, #16233a 0%, transparent 60%),
+    radial-gradient(ellipse 900px 500px at 100% 0%, #131f33 0%, transparent 55%),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--font-mono);
+  font-size:13px;
+  min-height:100vh;
+  padding:20px;
+}
+@media(min-width:900px){ body{padding:32px;} }
+
+/* ---------- layout shell ---------- */
+.wrap{max-width:1400px; margin:0 auto;}
+
+header{
+  display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between;
+  gap:16px; margin-bottom:22px; padding-bottom:18px; border-bottom:1px solid var(--line);
+}
+.brand-eyebrow{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.18em;
+  color:var(--mint); text-transform:uppercase; margin-bottom:4px; display:flex; align-items:center; gap:8px;
+}
+.brand-eyebrow::before{
+  content:''; width:6px; height:6px; border-radius:50%; background:var(--mint);
+  box-shadow:0 0 0 3px var(--mint-dim);
+}
+h1{
+  font-family:var(--font-display); font-weight:700; font-size:28px;
+  letter-spacing:-0.01em; color:#f2f6fb;
+}
+h1 span{color:var(--text-faint); font-weight:500;}
+
+.conn-block{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+.conn-status{display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-dim);}
+.dot{width:8px; height:8px; border-radius:50%; background:var(--text-faint); transition:background .3s, box-shadow .3s;}
+.dot.live{background:var(--mint); box-shadow:0 0 0 4px var(--mint-dim); animation:pulse 2s infinite;}
+.dot.down{background:var(--rose); box-shadow:0 0 0 4px var(--rose-dim);}
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.5;} }
+
+input.url-input{
+  background:var(--bg-panel); border:1px solid var(--line); color:var(--text);
+  font-family:var(--font-mono); font-size:12px; padding:8px 12px; border-radius:8px;
+  width:230px; outline:none; transition:border-color .2s;
+}
+input.url-input:focus{border-color:var(--indigo);}
+
+select, button{
+  font-family:var(--font-mono); font-size:12px; border-radius:8px; border:1px solid var(--line);
+  background:var(--bg-panel); color:var(--text); padding:8px 12px; cursor:pointer; outline:none;
+}
+button:hover, select:hover{border-color:var(--indigo);}
+button.danger{color:var(--rose); border-color:#f2607a55;}
+button.danger:hover{background:var(--rose-dim); border-color:var(--rose);}
+button:active{transform:translateY(1px);}
+button:disabled{opacity:.4; cursor:not-allowed;}
+
+.error-banner{
+  display:none; background:var(--rose-dim); border:1px solid #f2607a66; color:#ffb3c1;
+  padding:12px 16px; border-radius:var(--radius); margin-bottom:20px; font-size:12px; line-height:1.6;
+}
+.error-banner.show{display:block;}
+
+/* ---------- stat strip ---------- */
+.stats{
+  display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:22px;
+}
+@media(min-width:700px){ .stats{grid-template-columns:repeat(4,1fr);} }
+.stat-card{
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:16px 18px; position:relative; overflow:hidden;
+}
+.stat-label{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px;}
+.stat-value{font-family:var(--font-display); font-size:30px; font-weight:700; color:#f2f6fb; line-height:1;}
+.stat-sub{font-size:11px; color:var(--text-faint); margin-top:6px;}
+.stat-card.accent-mint .stat-value{color:var(--mint);}
+.stat-card.accent-amber .stat-value{color:var(--amber);}
+.stat-card.accent-rose .stat-value{color:var(--rose);}
+
+/* ---------- panels ---------- */
+.grid{display:grid; grid-template-columns:1fr; gap:16px;}
+@media(min-width:1100px){ .grid{grid-template-columns:1.3fr 1fr 1fr;} }
+
+.panel{
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  display:flex; flex-direction:column; min-height:0;
+}
+.panel-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px; border-bottom:1px solid var(--line-soft);
+}
+.panel-title{
+  font-family:var(--font-display); font-weight:600; font-size:14px; color:#f2f6fb;
+  display:flex; align-items:center; gap:8px;
+}
+.panel-count{
+  font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
+  background:var(--bg-panel-raised); padding:2px 8px; border-radius:20px; border:1px solid var(--line);
+}
+.panel-body{padding:16px 18px; overflow-y:auto; max-height:560px;}
+.panel-body::-webkit-scrollbar{width:6px;}
+.panel-body::-webkit-scrollbar-thumb{background:var(--line); border-radius:3px;}
+
+.empty-state{
+  color:var(--text-faint); font-size:12px; text-align:center; padding:36px 12px; line-height:1.6;
+}
+
+/* ---------- queue radar ---------- */
+.radar-wrap{margin-bottom:14px;}
+.radar-axis-label{display:flex; justify-content:space-between; font-size:10px; color:var(--text-faint); margin-bottom:4px;}
+svg.radar{width:100%; height:auto; display:block; overflow:visible;}
+.radar-band{fill:var(--indigo); opacity:.14;}
+.radar-tick{stroke:var(--line); stroke-width:1;}
+.radar-dot{fill:var(--indigo); stroke:#0c1420; stroke-width:2;}
+
+table{width:100%; border-collapse:collapse; font-size:12px;}
+th{
+  text-align:left; font-weight:500; color:var(--text-faint); font-size:10px;
+  letter-spacing:.08em; text-transform:uppercase; padding:6px 8px; border-bottom:1px solid var(--line-soft);
+}
+td{padding:8px; border-bottom:1px solid var(--line-soft); color:var(--text);}
+tr:last-child td{border-bottom:none;}
+td.mono{font-family:var(--font-mono); color:var(--text-dim);}
+.range-pill{
+  display:inline-block; font-size:10px; padding:2px 7px; border-radius:20px;
+  background:var(--indigo-dim); color:var(--indigo); font-family:var(--font-mono);
+}
+
+/* ---------- lobby cards ---------- */
+.lobby-card{
+  border:1px solid var(--line-soft); border-radius:8px; padding:12px 14px; margin-bottom:10px;
+  background:var(--bg-panel-raised);
+}
+.lobby-card:last-child{margin-bottom:0;}
+.lobby-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+.lobby-id{font-family:var(--font-mono); font-size:11px; color:var(--text-dim);}
+.lobby-progress-track{
+  width:100%; height:6px; border-radius:4px; background:var(--line-soft); overflow:hidden; margin-bottom:10px;
+}
+.lobby-progress-fill{height:100%; background:var(--mint); border-radius:4px; transition:width .4s ease;}
+.lobby-members{display:flex; flex-wrap:wrap; gap:5px;}
+.member-chip{
+  font-size:10px; font-family:var(--font-mono); padding:3px 7px; border-radius:5px;
+  border:1px solid var(--line-soft); color:var(--text-dim);
+}
+.member-chip.accepted{color:var(--mint); border-color:#5eeac455; background:var(--mint-dim);}
+
+/* ---------- servers ---------- */
+.server-group-head{
+  display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-faint); margin:14px 0 8px;
+}
+.server-group-head:first-child{margin-top:0;}
+.group-dot{width:7px; height:7px; border-radius:50%;}
+.group-dot.waiting{background:var(--mint);}
+.group-dot.reserved{background:var(--amber);}
+.group-dot.in_game{background:var(--rose);}
+.server-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 10px; border-radius:6px; margin-bottom:5px; background:var(--bg-panel-raised);
+  border:1px solid var(--line-soft); font-size:11px;
+}
+.server-row .sid{font-family:var(--font-mono); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;}
+.server-row .meta{color:var(--text-faint); font-family:var(--font-mono); white-space:nowrap;}
+
+.pool-gauge{display:flex; gap:2px; height:6px; border-radius:4px; overflow:hidden; margin-top:10px;}
+.pool-seg{flex:1;}
+
+footer{
+  margin-top:26px; padding-top:16px; border-top:1px solid var(--line);
+  display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  font-size:11px; color:var(--text-faint);
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand-eyebrow">Matchmaking Gateway</div>
+      <h1>Gateway <span>/ ops console</span></h1>
+    </div>
+    <div class="conn-block">
+      <div class="conn-status"><span class="dot" id="connDot"></span><span id="connLabel">connecting…</span></div>
+      <input class="url-input" id="gatewayUrl" spellcheck="false" placeholder="http://localhost:8000">
+      <select id="pollInterval">
+        <option value="1000">refresh 1s</option>
+        <option value="2000" selected>refresh 2s</option>
+        <option value="5000">refresh 5s</option>
+      </select>
+      <button id="resetBtn" class="danger" title="POST /debug/reset — очищает очередь, лобби и резервации">reset state</button>
+    </div>
+  </header>
+
+  <div class="error-banner" id="errorBanner"></div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Queue</div>
+      <div class="stat-value" id="statQueue">–</div>
+      <div class="stat-sub" id="statQueueSub">игроков в очереди</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Lobbies forming</div>
+      <div class="stat-value" id="statLobbies">–</div>
+      <div class="stat-sub" id="statLobbiesSub">ожидают accept</div>
+    </div>
+    <div class="stat-card accent-mint">
+      <div class="stat-label">Servers waiting</div>
+      <div class="stat-value" id="statWaiting">–</div>
+      <div class="stat-sub">свободный тёплый пул</div>
+    </div>
+    <div class="stat-card accent-amber">
+      <div class="stat-label">Reserved / in-game</div>
+      <div class="stat-value" id="statBusy">–</div>
+      <div class="stat-sub" id="statBusySub">–</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">🎯 Очередь · MMR radar</div>
+        <div class="panel-count" id="queueCount">0</div>
+      </div>
+      <div class="panel-body" id="queuePanelBody">
+        <div class="empty-state">Нет данных</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">🤝 Лобби</div>
+        <div class="panel-count" id="lobbyCount">0</div>
+      </div>
+      <div class="panel-body" id="lobbyPanelBody">
+        <div class="empty-state">Нет активных лобби</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">🖥 Сервера</div>
+        <div class="panel-count" id="serverCount">0</div>
+      </div>
+      <div class="panel-body" id="serverPanelBody">
+        <div class="empty-state">Нет данных</div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <span id="lastUpdated">ещё не обновлялось</span>
+    <span>эндпоинты: /debug/queue · /debug/lobbies · /debug/servers · /debug/reset</span>
+  </footer>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const urlInput = $('gatewayUrl');
+const STORAGE_KEY = 'gateway_dashboard_url';
+
+urlInput.value = localStorage.getItem(STORAGE_KEY) || 'http://localhost:8000';
+urlInput.addEventListener('change', () => {
+  localStorage.setItem(STORAGE_KEY, urlInput.value.trim());
+  tick();
+});
+
+let pollTimer = null;
+let inFlight = false;
+
+const BASE_MMR_RANGE = 50, RANGE_GROWTH_PER_SEC = 10, MAX_MMR_RANGE = 1000;
+function dynamicRange(waitSeconds){
+  return Math.min(BASE_MMR_RANGE + Math.floor((waitSeconds||0) * RANGE_GROWTH_PER_SEC), MAX_MMR_RANGE);
+}
+
+function baseUrl(){
+  return (urlInput.value.trim() || 'http://localhost:8000').replace(/\/$/, '');
+}
+
+async function getJSON(path){
+  const res = await fetch(baseUrl() + path, { method:'GET' });
+  if(!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
+  return res.json();
+}
+
+function setConn(ok){
+  $('connDot').className = 'dot ' + (ok ? 'live' : 'down');
+  $('connLabel').textContent = ok ? baseUrl() : 'нет связи с гейтвеем';
+  $('errorBanner').classList.toggle('show', !ok);
+}
+
+function showError(msg){
+  $('errorBanner').innerHTML = `Не удалось получить данные с <strong>${baseUrl()}</strong>: ${msg}.
+    Проверьте, что гейтвей запущен и адрес указан верно (CORS на гейтвее уже открыт для всех origin).`;
+}
+
+// ---------- render: queue ----------
+function renderQueue(data){
+  const players = data.players || [];
+  $('queueCount').textContent = players.length;
+  $('statQueue').textContent = players.length;
+  $('statQueueSub').textContent = players.length
+    ? `дольше всех ждёт: ${players[0].wait_seconds ?? '–'} с`
+    : 'очередь пуста';
+
+  const body = $('queuePanelBody');
+  if(!players.length){
+    body.innerHTML = '<div class="empty-state">Очередь пуста — никто не ищет матч</div>';
+    return;
+  }
+
+  const mmrs = players.map(p => p.mmr);
+  const ranges = players.map(p => dynamicRange(p.wait_seconds));
+
+  // Нижняя граница шкалы теперь защищена от значений ниже 0
+  const lo = Math.max(0, Math.min(...players.map((p, i) => Math.max(0, p.mmr - ranges[i]))) - 20);
+  const hi = Math.max(...mmrs.map((m, i) => m + ranges[i])) + 20;
+
+  const W = 560, H = 90, PAD = 12;
+  const x = (mmr) => PAD + ((mmr - lo) / (hi - lo || 1)) * (W - PAD*2);
+
+  let svg = `<svg class="radar" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+  // grid ticks
+  for(let i=0;i<=4;i++){
+    const gx = PAD + (i/4)*(W-PAD*2);
+    svg += `<line class="radar-tick" x1="${gx}" y1="10" x2="${gx}" y2="${H-10}"/>`;
+  }
+
+  players.forEach((p, i) => {
+    // Мин. MMR диапазона не может опускаться ниже 0
+    const minMmr = Math.max(0, p.mmr - ranges[i]);
+    const maxMmr = p.mmr + ranges[i];
+
+    const x1 = x(minMmr);
+    const x2 = x(maxMmr);
+    const width = Math.max(4, x2 - x1);
+
+    const cx = x(p.mmr);
+    const rowY = 20 + (i % 3) * 22;
+
+    svg += `<rect class="radar-band" x="${x1}" y="${rowY-8}" width="${width}" height="16" rx="8"/>`;
+    svg += `<circle class="radar-dot" cx="${cx}" cy="${rowY}" r="4"/>`;
+  });
+  svg += `</svg>`;
+
+  const rows = players.map(p => {
+    const range = dynamicRange(p.wait_seconds);
+    const minMmr = Math.max(0, p.mmr - range);
+    const maxMmr = p.mmr + range;
+
+    return `
+    <tr>
+      <td class="mono">${p.player_id}</td>
+      <td>${p.mmr}</td>
+      <td class="mono">${p.wait_seconds ?? '–'}s</td>
+      <td><span class="range-pill">${minMmr} – ${maxMmr}</span></td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="radar-wrap">
+      <div class="radar-axis-label"><span>${Math.round(lo)} MMR</span><span>диапазон поиска растёт со временем ожидания</span><span>${Math.round(hi)} MMR</span></div>
+      ${svg}
+    </div>
+    <table>
+      <thead><tr><th>Игрок</th><th>MMR</th><th>Ожидание</th><th>Диапазон поиска</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ---------- render: lobbies ----------
+function renderLobbies(data){
+  const lobbies = data.lobbies || [];
+  $('lobbyCount').textContent = lobbies.length;
+  $('statLobbies').textContent = lobbies.length;
+  $('statLobbiesSub').textContent = lobbies.length ? 'ожидают accept от игроков' : 'сейчас никто не собирается';
+
+  const body = $('lobbyPanelBody');
+  if(!lobbies.length){
+    body.innerHTML = '<div class="empty-state">Активных лобби нет</div>';
+    return;
+  }
+
+  body.innerHTML = lobbies.map(l => {
+    const pct = Math.round((l.accepted_count / l.total) * 100);
+    const chips = Object.entries(l.members).map(([pid, status]) =>
+      `<span class="member-chip ${status === 'accepted' ? 'accepted' : ''}">${pid}</span>`
+    ).join('');
+    return `
+      <div class="lobby-card">
+        <div class="lobby-top">
+          <span class="lobby-id">#${l.lobby_id}</span>
+          <span class="mono" style="color:var(--text-dim); font-size:11px;">${l.accepted_count}/${l.total} accepted</span>
+        </div>
+        <div class="lobby-progress-track"><div class="lobby-progress-fill" style="width:${pct}%"></div></div>
+        <div class="lobby-members">${chips}</div>
+      </div>`;
+  }).join('');
+}
+
+// ---------- render: servers ----------
+function renderServers(data){
+  const servers = data.servers || [];
+  $('serverCount').textContent = servers.length;
+
+  const groups = { waiting:[], reserved:[], in_game:[] };
+  servers.forEach(s => { (groups[s.status] || (groups[s.status] = [])).push(s); });
+
+  const waiting = groups.waiting?.length || 0;
+  const reserved = groups.reserved?.length || 0;
+  const inGame = groups.in_game?.length || 0;
+
+  $('statWaiting').textContent = data.available_count ?? waiting;
+  $('statBusy').textContent = reserved + inGame;
+  $('statBusySub').textContent = `${reserved} reserved · ${inGame} in-game`;
+
+  const body = $('serverPanelBody');
+  if(!servers.length){
+    body.innerHTML = '<div class="empty-state">Ни один сервер ещё не зарегистрирован</div>';
+    return;
+  }
+
+  const labels = { waiting:'Waiting', reserved:'Reserved', in_game:'In game' };
+  let html = '';
+  ['waiting','reserved','in_game'].forEach(status => {
+    const list = groups[status] || [];
+    if(!list.length) return;
+    html += `<div class="server-group-head"><span class="group-dot ${status}"></span>${labels[status]} · ${list.length}</div>`;
+    html += list.map(s => `
+      <div class="server-row">
+        <span class="sid">${s.server_id}</span>
+        <span class="meta">${s.ip}:${s.port} · ${s.current_players}/${s.max_players}</span>
+      </div>`).join('');
+  });
+
+  html += `<div class="pool-gauge">
+    <div class="pool-seg" style="flex:${waiting}; background:var(--mint)"></div>
+    <div class="pool-seg" style="flex:${reserved}; background:var(--amber)"></div>
+    <div class="pool-seg" style="flex:${inGame}; background:var(--rose)"></div>
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+// ---------- poll loop ----------
+async function tick(){
+  if(inFlight) return;
+  inFlight = true;
+  try{
+    const [queue, lobbies, servers] = await Promise.all([
+      getJSON('/debug/queue'),
+      getJSON('/debug/lobbies'),
+      getJSON('/debug/servers'),
+    ]);
+    setConn(true);
+    renderQueue(queue);
+    renderLobbies(lobbies);
+    renderServers(servers);
+    $('lastUpdated').textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU');
+  }catch(e){
+    setConn(false);
+    showError(e.message || String(e));
+  }finally{
+    inFlight = false;
+  }
+}
+
+function restartPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  tick();
+  pollTimer = setInterval(tick, parseInt($('pollInterval').value, 10));
+}
+
+$('pollInterval').addEventListener('change', restartPolling);
+
+$('resetBtn').addEventListener('click', async () => {
+  if(!confirm('Точно сбросить очередь, лобби и резервации серверов?')) return;
+  $('resetBtn').disabled = true;
+  try{
+    const res = await fetch(baseUrl() + '/debug/reset', { method:'POST' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    await tick();
+  }catch(e){
+    showError('reset не выполнен — ' + (e.message || e));
+  }finally{
+    $('resetBtn').disabled = false;
+  }
+});
+
+restartPolling();
+</script>
+</body>
+</html>
